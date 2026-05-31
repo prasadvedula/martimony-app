@@ -1,9 +1,3 @@
-import type { Profile, User, MatchRecord } from '@prisma/client'
-
-export type { Profile, User, MatchRecord }
-
-export type ProfileWithUser = Profile & { user?: User | null }
-
 export interface ProfileFormData {
   name: string
   gender: 'MALE' | 'FEMALE'
