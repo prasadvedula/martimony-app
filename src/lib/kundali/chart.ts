@@ -212,12 +212,38 @@ export interface ChartData {
   hasFullData: boolean  // true if we have enough for a complete chart
 }
 
+export interface RealPlanets {
+  sun?: string; moon?: string; mars?: string; mercury?: string
+  jupiter?: string; venus?: string; saturn?: string
+  rahu?: string; ketu?: string; lagna?: string
+}
+
 export interface ChartInput {
   name: string
   dateOfBirth: Date | string
   nakshatra: string
   birthHour?: number   // 0-23, optional
   rashi?: string       // direct rashi override
+  realPlanets?: RealPlanets  // from VedAstro API — overrides all approximations
+}
+
+// ── Rasi string → sign number ─────────────────────────────────────
+// Handles both "Vrishabha (Taurus)" and plain "Taurus"
+function rasiStringToNum(s: string): number {
+  if (!s) return 0
+  // Try Sanskrit name first
+  const n1 = rashiToSignNum(s.split('(')[0].trim())
+  if (n1) return n1
+  // Try English name in parentheses
+  const match = s.match(/\(([^)]+)\)/)
+  if (match) {
+    const eng = match[1].trim().toLowerCase()
+    const found = SIGNS.find(sg => sg.name.toLowerCase() === eng)
+    if (found) return found.num
+  }
+  // Try English name directly
+  const found = SIGNS.find(sg => sg.name.toLowerCase() === s.toLowerCase())
+  return found?.num ?? 0
 }
 
 // ── Main builder ──────────────────────────────────────────────────
@@ -226,35 +252,38 @@ export function buildChartData(input: ChartInput): ChartData {
     ? new Date(input.dateOfBirth)
     : input.dateOfBirth
 
-  const moonSign = input.rashi
-    ? rashiToSignNum(input.rashi)
-    : getMoonSign(input.nakshatra)
+  const rp = input.realPlanets
+  const hasRealData = !!rp
 
-  const sunSign = getSunSign(dob)
+  const moonSign = rp?.moon
+    ? rasiStringToNum(rp.moon)
+    : input.rashi
+      ? rashiToSignNum(input.rashi)
+      : getMoonSign(input.nakshatra)
 
-  // Lagna: very rough approximation if birth hour given
-  // Each sign rises ~2 hours; starting from Aries at 06:00 local
-  let lagnaSign: number | undefined
-  if (input.birthHour !== undefined) {
-    const hoursFromDawn = ((input.birthHour - 6) + 24) % 24
-    lagnaSign = ((Math.floor(hoursFromDawn / 2) + sunSign - 1) % 12) + 1
-  }
+  const sunSign = rp?.sun ? rasiStringToNum(rp.sun) : getSunSign(dob)
+
+  const lagnaSign: number | undefined = rp?.lagna
+    ? rasiStringToNum(rp.lagna) || undefined
+    : (() => {
+        if (input.birthHour === undefined) return undefined
+        const hoursFromDawn = ((input.birthHour - 6) + 24) % 24
+        return ((Math.floor(hoursFromDawn / 2) + sunSign - 1) % 12) + 1
+      })()
 
   const placements: PlanetPlacement[] = [
-    { planetId: 'su', sign: sunSign,  isApprox: false },
+    { planetId: 'su', sign: sunSign,  isApprox: !hasRealData },
     { planetId: 'mo', sign: moonSign, isApprox: false },
-    { planetId: 'ju', sign: getApproxSign('ju', dob), isApprox: true },
-    { planetId: 'sa', sign: getApproxSign('sa', dob), isApprox: true },
-    { planetId: 'ra', sign: getApproxSign('ra', dob), isApprox: true, isRetrograde: true },
-    { planetId: 'ke', sign: ((getApproxSign('ra', dob) + 5) % 12) + 1, isApprox: true }, // opposite Rahu
-    { planetId: 'ma', sign: getApproxSign('ma', dob), isApprox: true },
-    { planetId: 've', sign: getApproxSign('ve', dob), isApprox: true },
-    { planetId: 'me', sign: getApproxSign('me', dob), isApprox: true },
+    { planetId: 'ma', sign: rp?.mars    ? rasiStringToNum(rp.mars)    : getApproxSign('ma', dob), isApprox: !hasRealData },
+    { planetId: 'me', sign: rp?.mercury ? rasiStringToNum(rp.mercury) : getApproxSign('me', dob), isApprox: !hasRealData },
+    { planetId: 'ju', sign: rp?.jupiter ? rasiStringToNum(rp.jupiter) : getApproxSign('ju', dob), isApprox: !hasRealData },
+    { planetId: 've', sign: rp?.venus   ? rasiStringToNum(rp.venus)   : getApproxSign('ve', dob), isApprox: !hasRealData },
+    { planetId: 'sa', sign: rp?.saturn  ? rasiStringToNum(rp.saturn)  : getApproxSign('sa', dob), isApprox: !hasRealData },
+    { planetId: 'ra', sign: rp?.rahu    ? rasiStringToNum(rp.rahu)    : getApproxSign('ra', dob), isApprox: !hasRealData, isRetrograde: true },
+    { planetId: 'ke', sign: rp?.ketu    ? rasiStringToNum(rp.ketu)    : ((getApproxSign('ra', dob) + 5) % 12) + 1, isApprox: !hasRealData },
   ]
 
-  if (lagnaSign) {
-    placements.push({ planetId: 'as', sign: lagnaSign, isApprox: false })
-  }
+  if (lagnaSign) placements.push({ planetId: 'as', sign: lagnaSign, isApprox: false })
 
   const dobStr = dob.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -265,7 +294,7 @@ export function buildChartData(input: ChartInput): ChartData {
     lagnaSign,
     moonSign,
     sunSign,
-    hasFullData: !!lagnaSign,
+    hasFullData: hasRealData || !!lagnaSign,
   }
 }
 

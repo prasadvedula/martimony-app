@@ -8,7 +8,7 @@ import {
   FAMILY_VALUES, EDUCATION_LEVELS, INDIAN_STATES,
 } from '@/types'
 import { NAKSHATRA_NAMES } from '@/lib/kundali'
-import { profilesApi } from '@/lib/api'
+import { profilesApi, astroApi, type AstroResult } from '@/lib/api'
 
 const RASHIS = [
   'Mesha (Aries)', 'Vrishabha (Taurus)', 'Mithuna (Gemini)', 'Karka (Cancer)',
@@ -41,13 +41,48 @@ function Field({ label, required, children, full }: { label: string; required?: 
 
 export function ProfileForm() {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [preview, setPreview] = useState<string | null>(null)
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [preview, setPreview]   = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const [isBrahmin, setIsBrahmin] = useState(false)
-  const [gender, setGender] = useState<'MALE' | 'FEMALE'>('MALE')
+  const [gender, setGender]     = useState<'MALE' | 'FEMALE'>('MALE')
+
+  // ── Astrological auto-calculate state ───────────────────────────
+  const [dob, setDob]             = useState('')
+  const [bTime, setBTime]         = useState('')
+  const [bPlace, setBPlace]       = useState('')
+  const [nakshatra, setNakshatra] = useState('')
+  const [rashi, setRashi]         = useState('')
+  const [mangalDosha, setMangalDosha] = useState('false')
+  const [calcLoading, setCalcLoading] = useState(false)
+  const [calcError, setCalcError]     = useState('')
+  const [astroResult, setAstroResult] = useState<AstroResult | null>(null)
+
+  async function handleAutoCalc() {
+    if (!dob || !bPlace) {
+      setCalcError('Enter date of birth and place of birth first')
+      return
+    }
+    setCalcLoading(true)
+    setCalcError('')
+    try {
+      const res = await astroApi.calculate({ dateOfBirth: dob, birthTime: bTime || undefined, birthPlace: bPlace })
+      if (!res.success || !res.data) {
+        setCalcError(res.error ?? 'Calculation failed')
+      } else {
+        const d = res.data
+        setNakshatra(d.nakshatra)
+        setRashi(d.rasi)
+        setMangalDosha(d.mangalDosha ? 'true' : 'false')
+        setAstroResult(d)
+      }
+    } catch {
+      setCalcError('Network error — please try again')
+    }
+    setCalcLoading(false)
+  }
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
@@ -119,16 +154,48 @@ export function ProfileForm() {
         </Field>
 
         <Field label="Date of Birth" required>
-          <input name="dateOfBirth" type="date" className="input" required />
+          <input name="dateOfBirth" type="date" className="input" required
+            value={dob} onChange={e => setDob(e.target.value)} />
         </Field>
 
         <Field label="Birth Time">
-          <input name="birthTime" type="time" className="input" placeholder="e.g. 06:45" />
+          <input name="birthTime" type="time" className="input" placeholder="e.g. 06:45"
+            value={bTime} onChange={e => setBTime(e.target.value)} />
         </Field>
 
         <Field label="Place of Birth" required>
-          <input name="birthPlace" className="input" placeholder="City, State" required />
+          <input name="birthPlace" className="input" placeholder="City, State e.g. Hyderabad, Telangana" required
+            value={bPlace} onChange={e => setBPlace(e.target.value)} />
         </Field>
+
+        {/* Auto-calculate astrology */}
+        <div className="md:col-span-2 bg-gradient-to-r from-pink-50 to-saffron-50 border border-pink-200 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <p className="text-sm font-semibold text-pink-800">🪐 Auto-calculate Birth Star & Rasi</p>
+              <p className="text-xs text-gray-500 mt-0.5">Fill date, time, and place above — then click to calculate</p>
+            </div>
+            <button type="button" onClick={handleAutoCalc} disabled={calcLoading || !dob || !bPlace}
+              className="btn btn-primary btn-sm disabled:opacity-50">
+              {calcLoading
+                ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Calculating…</>
+                : '✨ Auto-calculate'}
+            </button>
+          </div>
+          {calcError && <p className="text-xs text-red-600">{calcError}</p>}
+          {astroResult && (
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-medium">✦ {astroResult.nakshatra}</span>
+              <span className="bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full font-medium">☽ {astroResult.rasi}</span>
+              <span className={`px-2.5 py-1 rounded-full font-medium ${astroResult.mangalDosha ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                {astroResult.mangalDosha ? '⚠ Manglik' : '✓ Non-Manglik'}
+              </span>
+              <span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
+                📍 {astroResult.coordinates.lat.toFixed(2)}, {astroResult.coordinates.lon.toFixed(2)}
+              </span>
+            </div>
+          )}
+        </div>
 
         <Field label="Current City">
           <input name="currentCity" className="input" placeholder="Current city" />
@@ -174,21 +241,24 @@ export function ProfileForm() {
         </Field>
 
         <Field label="Nakshatra (Birth Star)" required>
-          <select name="nakshatra" className="select" required>
+          <select name="nakshatra" className="select" required
+            value={nakshatra} onChange={e => setNakshatra(e.target.value)}>
             <option value="">Select birth star</option>
             {NAKSHATRA_NAMES.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </Field>
 
         <Field label="Rashi (Moon Sign)">
-          <select name="rashi" className="select">
+          <select name="rashi" className="select"
+            value={rashi} onChange={e => setRashi(e.target.value)}>
             <option value="">Select rashi</option>
             {RASHIS.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </Field>
 
         <Field label="Mangal Dosha (Manglik)?">
-          <select name="mangalDosha" className="select">
+          <select name="mangalDosha" className="select"
+            value={mangalDosha} onChange={e => setMangalDosha(e.target.value)}>
             <option value="false">No (Non-Manglik)</option>
             <option value="true">Yes (Manglik)</option>
           </select>

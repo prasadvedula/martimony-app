@@ -77,6 +77,13 @@ export const consentApi = {
       `/api/consent/${token}`, { method: 'POST', body: JSON.stringify({ action }) }),
 }
 
+// ── Astro ─────────────────────────────────────────────────────────
+export const astroApi = {
+  calculate: (body: { dateOfBirth: string; birthTime?: string; birthPlace: string }) =>
+    apiFetch<{ success: boolean; data?: AstroResult; error?: string }>(
+      '/api/astro/calculate', { method: 'POST', body: JSON.stringify(body) }),
+}
+
 // ── Admin ─────────────────────────────────────────────────────────
 export const adminApi = {
   stats:    () => apiFetch<{ success: boolean; data?: AdminStats }>('/api/admin/stats', { auth: true }),
@@ -114,6 +121,18 @@ export interface ProfileListResponse {
 export interface AdminStats {
   total: number; active: number; pendingConsent: number; rejected: number; male: number; female: number
 }
+export interface AstroResult {
+  nakshatra: string
+  rasi: string
+  mangalDosha: boolean
+  coordinates: { lat: number; lon: number }
+  planets: {
+    sun: string; moon: string; mars: string; mercury: string
+    jupiter: string; venus: string; saturn: string
+    rahu: string; ketu: string; lagna: string
+  }
+}
+
 export interface PendingProfile {
   id: string; name: string; gender: string; dateOfBirth: string
   caste: string; nakshatra: string; contactEmail?: string; contactPhone?: string
