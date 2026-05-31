@@ -8,6 +8,7 @@ import { NAKSHATRA_NAMES } from '@/lib/kundali'
 import { buildChartData, getSignInfo, type ChartData } from '@/lib/kundali/chart'
 import { useTranslation } from '@/lib/i18n/LanguageContext'
 import type { AshtakootResult } from '@/lib/kundali'
+import { matchApi, profilesApi } from '@/lib/api'
 
 type MatchMode = 'BY_NAKSHATRA' | 'BY_PROFILE'
 
@@ -97,8 +98,7 @@ export default function MatchPage() {
   // ── Profile search ──────────────────────────────────────────────
   async function searchProfiles(gender: string, query: string, setter: typeof setGroomOptions) {
     if (query.length < 2) { setter([]); return }
-    const res  = await fetch(`/api/profiles?gender=${gender}&limit=20`)
-    const data = await res.json()
+    const data = await profilesApi.list({ gender, limit: 20 })
     if (data.success) {
       setter(data.data.filter((p: ProfileOption) =>
         p.name.toLowerCase().includes(query.toLowerCase())).slice(0, 5))
@@ -114,10 +114,9 @@ export default function MatchPage() {
           brideMangal: brideMangal === '' ? null : brideMangal === 'true' }
       : { groomProfileId: groomId, brideProfileId: brideId }
     try {
-      const res  = await fetch('/api/match', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      const data = await res.json()
+      const data = await matchApi.calculate(body)
       if (!data.success) setError(data.error ?? t('common.error'))
-      else { setResult(data.data); setShowCharts(true) }
+      else { setResult(data.data as AshtakootResult); setShowCharts(true) }
     } catch { setError(t('match.networkError')) }
     setLoading(false)
   }

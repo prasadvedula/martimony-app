@@ -6,6 +6,7 @@ import { CASTES, INDIAN_STATES } from '@/types'
 import { NAKSHATRA_NAMES } from '@/lib/kundali'
 import Link from 'next/link'
 import { useTranslation } from '@/lib/i18n/LanguageContext'
+import { profilesApi } from '@/lib/api'
 
 interface Profile {
   id: string; name: string; gender: string; dateOfBirth: string
@@ -27,10 +28,9 @@ export default function ProfilesPage() {
 
   const fetchProfiles = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams()
-    Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, String(v)) })
-    const res  = await fetch(`/api/profiles?${params}`)
-    const data = await res.json()
+    const params: Record<string, string | number> = {}
+    Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v })
+    const data = await profilesApi.list(params)
     if (data.success) { setProfiles(data.data); setPagination(data.pagination) }
     setLoading(false)
   }, [filters])

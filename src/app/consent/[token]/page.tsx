@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
+import { consentApi } from '@/lib/api'
 
 interface ConsentData {
   request: { status: string; sentAt: string }
@@ -19,10 +20,9 @@ export default function ConsentPage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    fetch(`/api/consent/${token}`)
-      .then((r) => r.json())
+    consentApi.verify(token)
       .then((d) => {
-        if (d.success) setData(d.data)
+        if (d.success) setData(d.data as ConsentData)
         else setError(d.error ?? 'Invalid consent link.')
         setLoading(false)
       })
@@ -31,12 +31,7 @@ export default function ConsentPage() {
 
   async function respond(action: 'ACCEPT' | 'REJECT') {
     setSubmitting(true)
-    const res  = await fetch(`/api/consent/${token}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
-    })
-    const d = await res.json()
+    const d = await consentApi.respond(token, action)
     if (d.success) setDone(action)
     else setError(d.error ?? 'Failed.')
     setSubmitting(false)

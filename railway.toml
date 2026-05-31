@@ -1,9 +1,10 @@
+# This file is kept for reference only.
+# Frontend is deployed to Vercel (vercel.com).
+# Backend is deployed to Railway — see backend/railway.toml.
+
 [build]
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "npx prisma db push && npm start"
+startCommand = "npm start"
 healthcheckPath = "/"
-healthcheckTimeout = 300
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 10

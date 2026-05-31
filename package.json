@@ -1,47 +1,31 @@
 {
-  "name": "martmony-app",
+  "name": "martmony-frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate",
-    "db:push": "prisma db push",
-    "db:generate": "prisma generate",
-    "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "dev:all": "npx concurrently -n \"backend,frontend\" -c \"cyan,magenta\" \"npm run dev --prefix backend\" \"npm run dev\""
   },
   "dependencies": {
-    "@hookform/resolvers": "^3.9.0",
-    "@prisma/client": "^5.16.2",
-    "bcryptjs": "^2.4.3",
     "date-fns": "^3.6.0",
     "next": "14.2.5",
-    "next-auth": "^4.24.7",
-    "pdf-parse": "^1.1.1",
     "react": "^18",
     "react-dom": "^18",
-    "react-hook-form": "^7.52.1",
-    "sharp": "^0.33.4",
-    "uuid": "^9.0.1",
-    "zod": "^3.23.8"
+    "sharp": "^0.33.4"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
-    "@types/pdf-parse": "^1.1.4",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "@types/uuid": "^9.0.8",
     "autoprefixer": "^10.0.1",
+    "concurrently": "^8.2.2",
     "eslint": "^8",
     "eslint-config-next": "14.2.5",
     "postcss": "^8",
-    "prisma": "^5.16.2",
     "tailwindcss": "^3.4.1",
-    "tsx": "^4.22.3",
     "typescript": "^5"
   }
 }

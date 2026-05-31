@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import Link from 'next/link'
+import { uploadApi } from '@/lib/api'
 
 interface UploadResult {
   status: string
@@ -46,15 +47,14 @@ export default function AdminUploadPage() {
     fd.append('file', file)
 
     try {
-      const res  = await fetch('/api/upload', { method: 'POST', body: fd })
-      const data = await res.json()
+      const data = await uploadApi.pdf(fd)
 
       if (!data.success) {
         setError(data.error ?? 'Upload failed.')
       } else {
-        setResults(data.results)
-        setSummary(data.summary)
-        setBatchId(data.batchId)
+        setResults((data.results ?? []) as UploadResult[])
+        setSummary(data.summary as UploadSummary)
+        setBatchId(data.batchId ?? '')
       }
     } catch {
       setError('Network error. Please try again.')

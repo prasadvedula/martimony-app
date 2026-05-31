@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useTranslation } from '@/lib/i18n/LanguageContext'
+import { useAuth } from '@/lib/auth-context'
+import { authApi } from '@/lib/api'
 
 function AuthPanel() {
   return (
@@ -22,37 +23,27 @@ function AuthPanel() {
           <circle cx="100" cy="100" r="6" fill="currentColor" opacity="0.5"/>
         </svg>
       </div>
-
       <div className="relative z-10 flex items-center gap-2">
-        <span className="text-2xl">🪔</span>
+        <span className="text-2xl">💗</span>
         <span className="font-serif text-xl font-bold">Matrimony</span>
       </div>
-
       <div className="relative z-10 space-y-6">
-        <h2 className="font-serif text-3xl font-bold text-white leading-tight">
-          Begin Your<br />Sacred Journey
-        </h2>
+        <h2 className="font-serif text-3xl font-bold text-white leading-tight">Begin Your<br />Sacred Journey</h2>
         <div className="space-y-3">
           {[
             { icon: '🌟', text: 'Vedic Kundali matching with 36-point Ashtakoot system' },
             { icon: '🔒', text: 'Privacy-first — profiles activate only with family consent' },
             { icon: '🎯', text: 'Smart filters by nakshatra, gotram, and caste' },
-          ].map((item) => (
+          ].map(item => (
             <div key={item.text} className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 text-sm">
-                {item.icon}
-              </div>
+              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 text-sm">{item.icon}</div>
               <p className="text-sm text-pink-200 leading-relaxed">{item.text}</p>
             </div>
           ))}
         </div>
       </div>
-
-      <div className="relative z-10">
-        <div className="flex items-center gap-2 text-xs text-pink-300">
-          <span>✓</span>
-          <span>Join 50+ communities · 1,200+ profiles matched · 340+ weddings</span>
-        </div>
+      <div className="relative z-10 text-xs text-pink-300">
+        <span>✓ 50+ communities · 1,200+ profiles matched · 340+ weddings</span>
       </div>
     </div>
   )
@@ -60,86 +51,73 @@ function AuthPanel() {
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { t } = useTranslation()
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
-  const [error, setError] = useState('')
+  const { t }  = useTranslation()
+  const { login } = useAuth()
+  const [form, setForm]       = useState({ name: '', email: '', password: '', confirm: '' })
+  const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
 
-  function set(field: string, value: string) {
-    setForm((f) => ({ ...f, [field]: value }))
-  }
+  function set(field: string, value: string) { setForm(f => ({ ...f, [field]: value })) }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (form.password !== form.confirm) { setError(t('register.passwordMismatch')); return }
     setLoading(true); setError('')
 
-    const res = await fetch('/api/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: form.name, email: form.email, password: form.password }),
-    })
-    const data = await res.json()
+    const data = await authApi.register(form.name, form.email, form.password)
+    if (!data.success) { setError(data.error ?? t('register.failed')); setLoading(false); return }
 
-    if (!data.success) {
-      setError(data.error ?? t('register.failed')); setLoading(false); return
-    }
-    await signIn('credentials', { email: form.email, password: form.password, redirect: false })
+    // Auto-login after registration
+    await login(form.email, form.password)
     router.push('/profiles/new')
   }
 
   return (
     <div className="min-h-[calc(100vh-64px)] flex">
       <AuthPanel />
-
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-[var(--cream)]">
+      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-[var(--bg)]">
         <div className="w-full max-w-md animate-fade-up">
-          <div className="lg:hidden text-center mb-8"><span className="text-5xl">🪔</span></div>
-
+          <div className="lg:hidden text-center mb-8"><span className="text-5xl">💗</span></div>
           <div className="mb-8">
             <h1 className="display-title text-4xl text-gray-900 mb-2">{t('register.title')}</h1>
             <p className="text-gray-500 text-sm">{t('register.subtitle')}</p>
           </div>
-
           <div className="card shadow-xl">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="label">{t('register.fullName')}</label>
-                <input type="text" value={form.name} onChange={(e) => set('name', e.target.value)}
+                <input type="text" value={form.name} onChange={e => set('name', e.target.value)}
                   className="input" placeholder="Your full name" required />
               </div>
               <div>
                 <label className="label">{t('register.email')}</label>
-                <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)}
+                <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
                   className="input" placeholder="you@example.com" required />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">{t('register.password')}</label>
-                  <input type="password" value={form.password} onChange={(e) => set('password', e.target.value)}
+                  <input type="password" value={form.password} onChange={e => set('password', e.target.value)}
                     className="input" placeholder="Min 8 chars" minLength={8} required />
                 </div>
                 <div>
                   <label className="label">{t('register.confirmPassword')}</label>
-                  <input type="password" value={form.confirm} onChange={(e) => set('confirm', e.target.value)}
+                  <input type="password" value={form.confirm} onChange={e => set('confirm', e.target.value)}
                     className="input" placeholder="Repeat" required />
                 </div>
               </div>
-
               {error && (
                 <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
                   <span>⚠️</span> {error}
                 </div>
               )}
-
               <button type="submit" disabled={loading} className="btn btn-primary w-full py-3 text-base">
                 {loading
                   ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {t('register.loading')}</>
-                  : `✨ ${t('register.submit')}`
+                  : `💗 ${t('register.submit')}`
                 }
               </button>
             </form>
-
             <div className="divider" />
             <p className="text-center text-sm text-gray-500">
               {t('register.hasAccount')}{' '}

@@ -1,9 +1,23 @@
-import { prisma } from '@/lib/db'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { differenceInYears } from 'date-fns'
 import { ProfileBirthChart } from '@/components/ProfileBirthChart'
+
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+
+interface Profile {
+  id: string; name: string; gender: string; dateOfBirth: string
+  birthTime?: string; birthPlace: string; currentCity?: string; currentState?: string
+  caste: string; subCaste?: string; sakha?: string; gotram?: string; nakshatra: string
+  rashi?: string; mangalDosha?: boolean; kuladeviTemple?: string; surname?: string
+  heightCm?: number; complexion?: string; bodyType?: string
+  education?: string; educationDetail?: string; occupation?: string; occupationDetail?: string
+  annualIncomeLpa?: number; fatherName?: string; fatherOccupation?: string
+  motherName?: string; motherOccupation?: string; siblings?: string
+  familyType?: string; familyValues?: string; photoUrl?: string
+  prefAgeMin?: number; prefAgeMax?: number; prefCastes: string[]; prefStates: string[]
+}
 
 function feetFromCm(cm: number) {
   const totalIn = Math.round(cm / 2.54)
@@ -33,10 +47,13 @@ function SectionCard({ icon, title, children }: { icon: string; title: string; c
 }
 
 export default async function ProfileDetailPage({ params }: { params: { id: string } }) {
-  const profile = await prisma.profile.findUnique({ where: { id: params.id } })
-  if (!profile || profile.status !== 'ACTIVE') notFound()
+  const res = await fetch(`${BACKEND}/api/profiles/${params.id}`, { next: { revalidate: 60 } })
+  if (!res.ok) notFound()
+  const { data: profile }: { data: Profile } = await res.json()
+  if (!profile) notFound()
 
-  const age = differenceInYears(new Date(), profile.dateOfBirth)
+  const dob = new Date(profile.dateOfBirth)
+  const age = differenceInYears(new Date(), dob)
   const isFemale = profile.gender === 'FEMALE'
   const accentGrad = isFemale
     ? 'linear-gradient(135deg, #EC4899, #F43F5E)'
@@ -52,7 +69,6 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
       {/* Profile hero banner */}
       <div className="rounded-3xl overflow-hidden mb-6 relative"
         style={{ background: 'linear-gradient(135deg, #500724 0%, #831843 50%, #9D174D 100%)' }}>
-        {/* Decorative mandala */}
         <svg viewBox="0 0 200 200" fill="none" className="absolute right-0 top-0 w-64 text-white/10 translate-x-1/4 -translate-y-1/4 pointer-events-none">
           {[0,45,90,135,180,225,270,315].map((a) => (
             <ellipse key={a} cx="100" cy="58" rx="16" ry="42" fill="currentColor" transform={`rotate(${a} 100 100)`} />
@@ -62,7 +78,6 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
         </svg>
 
         <div className="relative z-10 p-8 flex flex-col md:flex-row items-center md:items-end gap-6">
-          {/* Avatar */}
           <div className="flex-shrink-0 relative">
             <div className="w-32 h-32 rounded-3xl overflow-hidden border-4 border-white/20 shadow-2xl">
               {profile.photoUrl ? (
@@ -74,11 +89,9 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
                 </div>
               )}
             </div>
-            {/* Gender accent strip */}
             <div className="absolute -bottom-0 left-0 right-0 h-1.5 rounded-b-3xl" style={{ background: accentGrad }} />
           </div>
 
-          {/* Info */}
           <div className="text-white text-center md:text-left">
             <h1 className="font-serif text-4xl font-bold mb-1">{profile.name}</h1>
             <p className="text-pink-200 text-lg mb-3">
@@ -88,7 +101,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
             <div className="flex flex-wrap gap-2 justify-center md:justify-start">
               <span className="badge badge-pink">{profile.caste}{profile.subCaste ? ` · ${profile.subCaste}` : ''}</span>
               {profile.nakshatra && <span className="badge badge-pink">✦ {profile.nakshatra}</span>}
-              {profile.mangalDosha !== null && (
+              {profile.mangalDosha != null && (
                 <span className={`badge ${profile.mangalDosha ? 'badge-red' : 'badge-green'}`}>
                   {profile.mangalDosha ? '⚠ Manglik' : '✓ Non-Manglik'}
                 </span>
@@ -103,23 +116,20 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
         </div>
       </div>
 
-      {/* Kundali match CTA */}
       <Link href={`/match?${isFemale ? 'brideId' : 'groomId'}=${profile.id}`}
         className="btn btn-primary btn-lg w-full mb-6 shadow-xl justify-center">
         🪐 {profile.name.split(' ')[0]} — Kundali Match
       </Link>
 
-      {/* Birth Chart */}
       <div className="mb-6">
         <ProfileBirthChart
           name={profile.name}
-          dateOfBirth={profile.dateOfBirth.toISOString()}
+          dateOfBirth={profile.dateOfBirth}
           nakshatra={profile.nakshatra}
           rashi={profile.rashi}
         />
       </div>
 
-      {/* Details grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <SectionCard icon="🪐" title="Astrological Details">
           <Row label="Nakshatra (Star)" value={profile.nakshatra} />
@@ -138,7 +148,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
         </SectionCard>
 
         <SectionCard icon="👤" title="Personal">
-          <Row label="Date of Birth" value={profile.dateOfBirth.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} />
+          <Row label="Date of Birth" value={dob.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} />
           <Row label="Height"        value={profile.heightCm ? `${profile.heightCm} cm (${feetFromCm(profile.heightCm)})` : null} />
           <Row label="Complexion"    value={profile.complexion} />
           <Row label="Body Type"     value={profile.bodyType} />

@@ -1,43 +1,40 @@
-﻿import { getSession } from '@/lib/auth'
-import { prisma } from '@/lib/db'
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { differenceInYears } from 'date-fns'
+import { useAuth } from '@/lib/auth-context'
+import { adminApi, type AdminStats, type PendingProfile } from '@/lib/api'
 
-export const metadata = { title: 'Admin Dashboard â€” Matrimony' }
+export default function AdminPage() {
+  const router = useRouter()
+  const { user, isAdmin, loading } = useAuth()
+  const [stats, setStats]     = useState<AdminStats | null>(null)
+  const [pending, setPending] = useState<PendingProfile[]>([])
+  const [fetching, setFetching] = useState(true)
 
-async function getStats() {
-  const [total, active, pendingConsent, rejected, male, female] = await Promise.all([
-    prisma.profile.count(),
-    prisma.profile.count({ where: { status: 'ACTIVE' } }),
-    prisma.profile.count({ where: { status: 'PENDING_CONSENT' } }),
-    prisma.profile.count({ where: { status: 'REJECTED' } }),
-    prisma.profile.count({ where: { gender: 'MALE' } }),
-    prisma.profile.count({ where: { gender: 'FEMALE' } }),
-  ])
-  return { total, active, pendingConsent, rejected, male, female }
-}
+  useEffect(() => {
+    if (!loading && (!user || !isAdmin)) router.replace('/login')
+  }, [loading, user, isAdmin, router])
 
-async function getPendingProfiles() {
-  return prisma.profile.findMany({
-    where: { status: 'PENDING_CONSENT' },
-    orderBy: { createdAt: 'desc' },
-    take: 20,
-    select: {
-      id: true, name: true, gender: true, dateOfBirth: true,
-      caste: true, nakshatra: true, contactEmail: true, contactPhone: true,
-      consentToken: true, createdAt: true, uploadedByAdmin: true,
-    },
-  })
-}
+  const reload = useCallback(() => {
+    if (!isAdmin) return
+    setFetching(true)
+    Promise.all([adminApi.stats(), adminApi.pending()])
+      .then(([s, p]) => {
+        if (s.success && s.data) setStats(s.data)
+        if (p.success && p.data) setPending(p.data)
+      })
+      .finally(() => setFetching(false))
+  }, [isAdmin])
 
-export default async function AdminPage() {
-  const session = await getSession()
-  if (!session || (session.user as { role?: string }).role !== 'ADMIN') {
-    redirect('/login')
+  useEffect(() => { reload() }, [reload])
+
+  if (loading || fetching) {
+    return <div className="max-w-7xl mx-auto px-4 py-10 text-center text-gray-400 text-sm">Loading…</div>
   }
-
-  const [stats, pending] = await Promise.all([getStats(), getPendingProfiles()])
+  if (!isAdmin) return null
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
@@ -47,46 +44,44 @@ export default async function AdminPage() {
           <p className="text-gray-500 text-sm mt-1">Manage profiles, consent requests, and uploads</p>
         </div>
         <div className="flex gap-3">
-          <Link href="/admin/upload" className="btn-primary">
-            ðŸ“„ Bulk Upload PDF
-          </Link>
-          <Link href="/profiles/new" className="btn-secondary">
-            + Add Profile
-          </Link>
+          <Link href="/admin/upload" className="btn-primary">📄 Bulk Upload PDF</Link>
+          <Link href="/profiles/new"  className="btn-secondary">+ Add Profile</Link>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        {[
-          { label: 'Total',    value: stats.total,         color: 'bg-gray-100    text-gray-800'   },
-          { label: 'Active',   value: stats.active,        color: 'bg-green-100   text-green-800'  },
-          { label: 'Pending',  value: stats.pendingConsent,color: 'bg-yellow-100  text-yellow-800' },
-          { label: 'Rejected', value: stats.rejected,      color: 'bg-red-100     text-red-800'    },
-          { label: 'Grooms',   value: stats.male,          color: 'bg-blue-100    text-blue-800'   },
-          { label: 'Brides',   value: stats.female,        color: 'bg-pink-100    text-pink-800'   },
-        ].map((s) => (
-          <div key={s.label} className={`rounded-xl p-4 text-center ${s.color}`}>
-            <p className="text-2xl font-bold">{s.value}</p>
-            <p className="text-xs font-medium mt-1">{s.label}</p>
-          </div>
-        ))}
-      </div>
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          {[
+            { label: 'Total',    value: stats.total,          color: 'bg-gray-100   text-gray-800'   },
+            { label: 'Active',   value: stats.active,         color: 'bg-green-100  text-green-800'  },
+            { label: 'Pending',  value: stats.pendingConsent, color: 'bg-yellow-100 text-yellow-800' },
+            { label: 'Rejected', value: stats.rejected,       color: 'bg-red-100    text-red-800'    },
+            { label: 'Grooms',   value: stats.male,           color: 'bg-blue-100   text-blue-800'   },
+            { label: 'Brides',   value: stats.female,         color: 'bg-pink-100   text-pink-800'   },
+          ].map((s) => (
+            <div key={s.label} className={`rounded-xl p-4 text-center ${s.color}`}>
+              <p className="text-2xl font-bold">{s.value}</p>
+              <p className="text-xs font-medium mt-1">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Quick actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <Link href="/admin/upload" className="card hover:shadow-md transition-shadow text-center group">
-          <div className="text-4xl mb-3">ðŸ“„</div>
+          <div className="text-4xl mb-3">📄</div>
           <h3 className="font-semibold">Bulk Upload PDF</h3>
           <p className="text-sm text-gray-500 mt-1">Upload community profiles from a PDF document</p>
         </Link>
         <Link href="/profiles" className="card hover:shadow-md transition-shadow text-center">
-          <div className="text-4xl mb-3">ðŸ”</div>
+          <div className="text-4xl mb-3">🔍</div>
           <h3 className="font-semibold">Browse All Profiles</h3>
           <p className="text-sm text-gray-500 mt-1">Search and view all registered profiles</p>
         </Link>
         <Link href="/match" className="card hover:shadow-md transition-shadow text-center">
-          <div className="text-4xl mb-3">â­</div>
+          <div className="text-4xl mb-3">⭐</div>
           <h3 className="font-semibold">Kundali Match</h3>
           <p className="text-sm text-gray-500 mt-1">Check compatibility between two profiles</p>
         </Link>
@@ -96,7 +91,7 @@ export default async function AdminPage() {
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-gray-900">
-            Pending Consent ({stats.pendingConsent})
+            Pending Consent ({stats?.pendingConsent ?? 0})
           </h2>
           <span className="badge badge-orange">Awaiting response</span>
         </div>
@@ -125,7 +120,7 @@ export default async function AdminPage() {
                       </Link>
                     </td>
                     <td className="py-3 pr-4 text-gray-600">
-                      {differenceInYears(new Date(), p.dateOfBirth)} yrs Â· {p.gender === 'MALE' ? 'â™‚' : 'â™€'}
+                      {differenceInYears(new Date(), new Date(p.dateOfBirth))} yrs · {p.gender === 'MALE' ? '♂' : '♀'}
                     </td>
                     <td className="py-3 pr-4 text-gray-600">
                       {p.caste}<br />
@@ -142,13 +137,9 @@ export default async function AdminPage() {
                     </td>
                     <td className="py-3">
                       <div className="flex gap-2">
-                        <AdminActivateButton profileId={p.id} />
+                        <ActivateButton profileId={p.id} onDone={reload} />
                         {p.consentToken && (
-                          <Link
-                            href={`/consent/${p.consentToken}`}
-                            target="_blank"
-                            className="btn-secondary btn-sm"
-                          >
+                          <Link href={`/consent/${p.consentToken}`} target="_blank" className="btn-secondary btn-sm">
                             Consent Link
                           </Link>
                         )}
@@ -165,25 +156,19 @@ export default async function AdminPage() {
   )
 }
 
-// Client component for activate button
-function AdminActivateButton({ profileId }: { profileId: string }) {
+function ActivateButton({ profileId, onDone }: { profileId: string; onDone: () => void }) {
+  const [loading, setLoading] = useState(false)
+
+  async function activate() {
+    setLoading(true)
+    await adminApi.activate(profileId)
+    setLoading(false)
+    onDone()
+  }
+
   return (
-    <form action={`/api/profiles/${profileId}`} method="PATCH">
-      <Link
-        href={`/api/profiles/${profileId}`}
-        className="btn-primary btn-sm"
-        onClick={async (e) => {
-          e.preventDefault()
-          await fetch(`/api/profiles/${profileId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'ACTIVE', consentGiven: true }),
-          })
-          window.location.reload()
-        }}
-      >
-        âœ“ Activate
-      </Link>
-    </form>
+    <button onClick={activate} disabled={loading} className="btn-primary btn-sm">
+      {loading ? '…' : '✓ Activate'}
+    </button>
   )
 }

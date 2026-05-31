@@ -1,16 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { useSession, signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useTranslation } from '@/lib/i18n/LanguageContext'
+import { useAuth } from '@/lib/auth-context'
 import type { Language } from '@/lib/i18n/translations'
 
 export function Navbar() {
-  const { data: session } = useSession()
+  const { user, logout, isAdmin } = useAuth()
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const { t, lang, setLang, languageNames } = useTranslation()
-  const isAdmin = (session?.user as { role?: string })?.role === 'ADMIN'
+
+  function handleSignOut() {
+    logout()
+    router.push('/')
+  }
 
   return (
     <header className="sticky top-0 z-50"
@@ -38,10 +44,10 @@ export function Navbar() {
           <NavLink href="/match">{t('nav.match')}</NavLink>
           {isAdmin && <NavLink href="/admin">{t('nav.admin')}</NavLink>}
 
-          {session ? (
+          {user ? (
             <>
               <NavLink href="/profiles/new">{t('nav.addProfile')}</NavLink>
-              <button onClick={() => signOut({ callbackUrl: '/' })}
+              <button onClick={handleSignOut}
                 className="ml-1 px-3 py-1.5 rounded-lg text-sm font-medium text-pink-200
                   hover:text-white hover:bg-white/10 transition-all duration-200">
                 {t('nav.signOut')}
@@ -88,8 +94,8 @@ export function Navbar() {
           <MobileLink href="/match"        onClick={() => setOpen(false)}>{t('nav.match')}</MobileLink>
           <MobileLink href="/profiles/new" onClick={() => setOpen(false)}>{t('nav.addProfile')}</MobileLink>
           {isAdmin && <MobileLink href="/admin" onClick={() => setOpen(false)}>{t('nav.admin')}</MobileLink>}
-          {session ? (
-            <button onClick={() => signOut({ callbackUrl: '/' })}
+          {user ? (
+            <button onClick={handleSignOut}
               className="block w-full text-left py-2.5 px-2 text-pink-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
               {t('nav.signOut')}
             </button>

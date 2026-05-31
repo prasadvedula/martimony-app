@@ -8,6 +8,7 @@ import {
   FAMILY_VALUES, EDUCATION_LEVELS, INDIAN_STATES,
 } from '@/types'
 import { NAKSHATRA_NAMES } from '@/lib/kundali'
+import { profilesApi } from '@/lib/api'
 
 const RASHIS = [
   'Mesha (Aries)', 'Vrishabha (Taurus)', 'Mithuna (Gemini)', 'Karka (Cancer)',
@@ -62,14 +63,13 @@ export function ProfileForm() {
     const fd = new FormData(formRef.current!)
 
     try {
-      const res = await fetch('/api/profiles', { method: 'POST', body: fd })
-      const data = await res.json()
+      const data = await profilesApi.create(fd)
       if (!data.success) {
         setError(data.error ?? 'Failed to create profile.')
         setLoading(false)
         return
       }
-      router.push(`/profiles/${data.data.id}?registered=1`)
+      router.push(`/profiles/${data.data!.id}?registered=1`)
     } catch {
       setError('Network error. Please try again.')
       setLoading(false)
