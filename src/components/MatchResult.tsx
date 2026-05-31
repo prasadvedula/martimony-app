@@ -2,7 +2,9 @@
 
 import type { AshtakootResult } from '@/lib/kundali'
 
-interface MatchResultProps { result: AshtakootResult }
+interface MatchResultProps {
+  result: AshtakootResult & { groomName?: string; brideName?: string }
+}
 
 const SCORE_CONFIG = {
   EXCELLENT:     { label: 'Excellent',      emoji: '✨', ring: '#10B981', bg: 'from-emerald-50 to-teal-50',    border: 'border-emerald-200', text: 'text-emerald-700' },
@@ -60,6 +62,106 @@ function KootBar({ scored, max }: { scored: number; max: number }) {
       <span className="text-xs font-bold w-10 text-right" style={{ color }}>
         {scored}/{max}
       </span>
+    </div>
+  )
+}
+
+// ── Mangal Dosha detail section ───────────────────────────────────
+function MangalDoshaSection({
+  result,
+}: {
+  result: MatchResultProps['result']
+}) {
+  const md = result.mangalDosha
+  const groomLabel = result.groomName ?? 'Groom'
+  const brideLabel = result.brideName ?? 'Bride'
+
+  const groomKnown = md.groomHasMangal !== null
+  const brideKnown = md.brideHasMangal !== null
+
+  const overallOk  = !md.doshaPresent
+
+  return (
+    <div className={`rounded-2xl border ${overallOk ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'} p-5 space-y-4`}>
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <span className="text-xl">{overallOk ? '✅' : '⚠️'}</span>
+        <h3 className="font-serif font-bold text-gray-900">
+          Mangal Dosha (Kuja Dosha)
+        </h3>
+        <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${overallOk ? 'bg-emerald-200 text-emerald-800' : 'bg-red-200 text-red-800'}`}>
+          {overallOk ? 'Compatible' : 'Attention Needed'}
+        </span>
+      </div>
+
+      {/* Individual person cards */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Groom */}
+        <div className={`rounded-xl p-3 border text-center ${
+          !groomKnown ? 'bg-gray-50 border-gray-200' :
+          md.groomHasMangal ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'
+        }`}>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+            👨 {groomLabel}
+          </p>
+          {!groomKnown ? (
+            <p className="text-xs text-gray-400">Not specified</p>
+          ) : md.groomHasMangal ? (
+            <>
+              <p className="text-lg">⚠️</p>
+              <p className="text-sm font-bold text-red-700">Manglik</p>
+              <p className="text-[10px] text-red-500 mt-0.5">Has Mangal Dosha</p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg">✓</p>
+              <p className="text-sm font-bold text-green-700">Non-Manglik</p>
+              <p className="text-[10px] text-green-600 mt-0.5">No Mangal Dosha</p>
+            </>
+          )}
+        </div>
+
+        {/* Bride */}
+        <div className={`rounded-xl p-3 border text-center ${
+          !brideKnown ? 'bg-gray-50 border-gray-200' :
+          md.brideHasMangal ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'
+        }`}>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+            👩 {brideLabel}
+          </p>
+          {!brideKnown ? (
+            <p className="text-xs text-gray-400">Not specified</p>
+          ) : md.brideHasMangal ? (
+            <>
+              <p className="text-lg">⚠️</p>
+              <p className="text-sm font-bold text-red-700">Manglik</p>
+              <p className="text-[10px] text-red-500 mt-0.5">Has Mangal Dosha</p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg">✓</p>
+              <p className="text-sm font-bold text-green-700">Non-Manglik</p>
+              <p className="text-[10px] text-green-600 mt-0.5">No Mangal Dosha</p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Compatibility verdict */}
+      <div className={`rounded-xl px-4 py-3 text-sm leading-relaxed ${overallOk ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+        {md.doshaText}
+      </div>
+
+      {/* Remedies hint when dosha present */}
+      {md.doshaPresent && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 space-y-1">
+          <p className="font-semibold">Traditional Remedies</p>
+          <p>• Kumbh Vivah (ritual marriage to a peepal/banana tree or Vishnu idol before the wedding)</p>
+          <p>• Matching with another Manglik partner cancels the dosha</p>
+          <p>• Worship at Navagraha temples — especially Mangal (Mars) temples</p>
+          <p className="text-amber-600 pt-1">Consult a qualified Jyotishi for personalised guidance.</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -133,22 +235,8 @@ export function MatchResult({ result }: MatchResultProps) {
         </div>
       </div>
 
-      {/* Mangal Dosha */}
-      <div className={`rounded-2xl p-5 border ${
-        result.mangalDosha.doshaPresent
-          ? 'bg-red-50 border-red-200'
-          : 'bg-emerald-50 border-emerald-200'
-      }`}>
-        <div className="flex items-start gap-3">
-          <span className="text-2xl">{result.mangalDosha.doshaPresent ? '⚠️' : '✅'}</span>
-          <div>
-            <h3 className="font-serif font-bold text-base text-gray-900 mb-1">
-              {result.mangalDosha.doshaPresent ? 'Mangal Dosha Present' : 'Mangal Status: Clear'}
-            </h3>
-            <p className="text-sm text-gray-600 leading-relaxed">{result.mangalDosha.doshaText}</p>
-          </div>
-        </div>
-      </div>
+      {/* Mangal Dosha — detailed per-person analysis */}
+      <MangalDoshaSection result={result} />
 
       <p className="text-[11px] text-gray-400 text-center px-4">
         Results based on the Vedic Ashtakoot matching system. Consult a qualified Jyotishi for a complete analysis.
