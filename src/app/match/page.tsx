@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { MatchResult } from '@/components/MatchResult'
 import { KundaliChart, PlanetaryRow, findSharedSigns } from '@/components/KundaliChart'
@@ -26,6 +26,14 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 }
 
 export default function MatchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-400">Loading…</div>}>
+      <MatchPageInner />
+    </Suspense>
+  )
+}
+
+function MatchPageInner() {
   const searchParams = useSearchParams()
   const { t } = useTranslation()
   const [mode, setMode]       = useState<MatchMode>('BY_NAKSHATRA')
